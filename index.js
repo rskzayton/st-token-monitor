@@ -47,6 +47,8 @@ let state = {
     cacheStatus: null,               // 'HIT' | 'MISS' | 'PARTIAL' | null
     cacheDetails: null,              // detailed info (cached_tokens, etc.)
     cacheHitTokens: 0,               // 缓存命中的 token 数
+    lastCost: null,                  // {total, hitCost, missCost, outputCost, savings}
+    sessionCost: 0,                  // 会话累计费用 (¥)
     modelName: null,
     isStreaming: false,
     startTime: null,
@@ -78,6 +80,62 @@ function getSettings() {
 // ---- Token Formatting ----
 function formatNumber(n) {
     return n.toLocaleString();
+}
+
+// CodeWhale-style 中文紧凑格式（参考 CodeWhale format_token_count_compact）
+function formatCompact(n) {
+    if (n >= 1_0000_0000) return (n / 1_0000_0000).toFixed(1) + '亿';
+    if (n >= 1_0000) return (n / 1_0000).toFixed(1) + '万';
+    if (n >= 1000) return formatNumber(n);
+    return String(n);
+}
+
+// ---- Pricing (人民币 ¥/百万 tokens, 参考 CodeWhale + DeepSeek 官方) ----
+const PRICING = {
+    'deepseek-v4-pro':   { hit: 0.026, miss: 3.13, output: 6.26 },
+    'deepseek-v4-flash': { hit: 0.020, miss: 1.01, output: 2.02 },
+    'deepseek-v3':       { hit: 0.1,   miss: 1.0,  output: 2.0  },
+    'deepseek-r1':       { hit: 1.0,   miss: 4.0,  output: 16.0 },
+    'claude-sonnet-4':   { hit: 1.09,  miss: 10.9, output: 54.5 },
+    'claude-sonnet-4-5': { hit: 1.09,  miss: 10.9, output: 54.5 },
+    'claude-haiku-4-5':  { hit: 0.073, miss: 0.73, output: 3.64 },
+    'gpt-4o':            { hit: 1.82,  miss: 18.2, output: 72.7 },
+    'gpt-4o-mini':       { hit: 0.073, miss: 0.73, output: 3.64 },
+};
+
+function findPricing(modelName) {
+    if (!modelName) return null;
+    for (const [key, price] of Object.entries(PRICING)) {
+        if (modelName.toLowerCase().includes(key.toLowerCase())) return price;
+    }
+    return null;
+}
+
+function calculateCost(modelName, promptTokens, completionTokens, cacheHitTokens) {
+    const price = findPricing(modelName);
+    if (!price) return null;
+
+    const hitTokens = cacheHitTokens || 0;
+    const missTokens = promptTokens - hitTokens;
+
+    const hitCost = (hitTokens / 1_000_000) * price.hit;
+    const missCost = (missTokens / 1_000_000) * price.miss;
+    const outputCost = (completionTokens / 1_000_000) * price.output;
+
+    return {
+        total: hitCost + missCost + outputCost,
+        hitCost,
+        missCost,
+        outputCost,
+        savings: (hitTokens / 1_000_000) * (price.miss - price.hit),  // 缓存节省的金额
+    };
+}
+
+function formatCost(cost) {
+    if (cost === null || cost === undefined) return null;
+    if (cost >= 1) return `¥${cost.toFixed(2)}`;
+    if (cost >= 0.01) return `¥${cost.toFixed(3)}`;
+    return `¥${cost.toFixed(5)}`;
 }
 
 function estimateTokensFromText(text) {
@@ -269,6 +327,7 @@ function createPanel() {
             <div id="${PANEL_ID}_prompt" style="display:none;"></div>
             <div id="${PANEL_ID}_completion" style="display:none;"></div>
             <div id="${PANEL_ID}_total" style="display:none;"></div>
+            <div id="${PANEL_ID}_cost" style="display:none;margin-top:4px;"></div>
             <div id="${PANEL_ID}_cache" style="display:none;margin-top:4px;"></div>
             <div id="${PANEL_ID}_status" style="margin-top:6px;font-size:11px;opacity:0.5;"></div>
             <div style="margin-top:6px;display:flex;gap:6px;">
@@ -476,6 +535,25 @@ function updateUI() {
         totalEl.style.display = 'none';
     }
 
+    // Cost (CodeWhale-style 人民币计价)
+    const costEl = document.getElementById(`${PANEL_ID}_cost`);
+    if (costEl && state.lastCost) {
+        let costText = `💰 本次: ${formatCost(state.lastCost.total)}`;
+        if (state.lastCost.savings > 0.0001) {
+            costText += ` · 缓存节省 ${formatCost(state.lastCost.savings)}`;
+        }
+        if (state.sessionCost > 0) {
+            costText += ` · 累计 ${formatCost(state.sessionCost)}`;
+        }
+        costEl.textContent = costText;
+        costEl.style.display = 'block';
+        costEl.style.color = state.lastCost.savings > 0.0001
+            ? (state.lastCost.savings > state.lastCost.total * 0.5 ? '#4ade80' : 'inherit')
+            : 'inherit';
+    } else if (costEl) {
+        costEl.style.display = 'none';
+    }
+
     // Cache status
     if (s.showCacheStatus && state.cacheStatus) {
         const icons = { HIT: '🟢', PARTIAL: '🟡', MISS: '🔴' };
@@ -520,6 +598,15 @@ function copyStats() {
     if (s.showCacheStatus && state.cacheStatus) {
         lines.push(`Cache: ${state.cacheStatus}${state.cacheDetails ? ' (' + state.cacheDetails + ')' : ''}`);
     }
+    if (state.lastCost) {
+        lines.push(`Cost: ${formatCost(state.lastCost.total)}`);
+        if (state.lastCost.savings > 0.0001) {
+            lines.push(`Cache savings: ${formatCost(state.lastCost.savings)}`);
+        }
+        if (state.sessionCost > 0) {
+            lines.push(`Session cost: ${formatCost(state.sessionCost)}`);
+        }
+    }
     if (lines.length === 0) lines.push('尚无数据');
 
     const text = `=== Token & Cache Stats ===\n${lines.join('\n')}\n=========================`;
@@ -545,6 +632,8 @@ function resetStats() {
     state.cacheStatus = null;
     state.cacheDetails = null;
     state.cacheHitTokens = 0;
+    state.lastCost = null;
+    state.sessionCost = 0;
     state.modelName = null;
     state.isStreaming = false;
     state.startTime = null;
@@ -702,6 +791,16 @@ async function onGenerationEnded(message) {
                 || usage.prompt_cache_hit_tokens
                 || (usage.prompt_tokens_details && usage.prompt_tokens_details.cached_tokens)
                 || 0;
+
+            // CodeWhale-style 人民币计价 + 缓存节省计算
+            const cost = calculateCost(
+                state.modelName,
+                state.promptTokens,
+                state.completionTokens,
+                state.cacheHitTokens
+            );
+            state.lastCost = cost;
+            if (cost) state.sessionCost += cost.total;
 
             // 持久化 billing header（供后续请求比较）
             if (window.__st_tm_billing_header) {
