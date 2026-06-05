@@ -50,6 +50,7 @@ let state = {
     isStreaming: false,
     startTime: null,
     lastPrompt: null,
+    _safetyTimer: null,     // 防止「一直显示生成中」的安全超时
 };
 
 // ---- Settings ----
@@ -129,7 +130,10 @@ function detectCacheStatus(usage) {
                 details: `${formatNumber(hit)} / ${formatNumber(prompt)} tokens 缓存命中`,
             };
         }
-        return { status: 'MISS', details: `未命中 (${formatNumber(miss)} tokens)` };
+        return {
+            status: 'MISS',
+            details: `全部未命中 (${formatNumber(miss)} tokens) · 首次请求或缓存已过期，后续同前缀请求将命中`,
+        };
     }
 
     // --- OpenAI-style ---
@@ -541,6 +545,19 @@ async function onGenerationStarted() {
         state.cacheStatus = null;
         state.cacheDetails = null;
 
+        // 安全超时：如果 GENERATION_ENDED 在 3 分钟内未触发，自动复位状态
+        if (state._safetyTimer) clearTimeout(state._safetyTimer);
+        state._safetyTimer = setTimeout(() => {
+            if (state.isStreaming) {
+                console.debug(`[${EXTENSION_NAME}] safety timeout: force reset streaming state`);
+                state.isStreaming = false;
+                if (state.estimatedCompletionTokens > 0) {
+                    state.completionTokens = state.estimatedCompletionTokens;
+                }
+                updateUI();
+            }
+        }, 3 * 60 * 1000);
+
         // Get model info
         try {
             const model = getGeneratingModel();
@@ -595,6 +612,7 @@ function onStreamTokenReceived(token) {
 async function onGenerationEnded(message) {
     try {
         state.isStreaming = false;
+        if (state._safetyTimer) { clearTimeout(state._safetyTimer); state._safetyTimer = null; }
 
         // Get actual usage from API response
         const usage = await extractUsageFromResponse();
@@ -634,6 +652,7 @@ async function onGenerationEnded(message) {
 
 function onGenerationStopped() {
     state.isStreaming = false;
+    if (state._safetyTimer) { clearTimeout(state._safetyTimer); state._safetyTimer = null; }
     state.completionTokens = state.estimatedCompletionTokens;
     updateUI();
 }

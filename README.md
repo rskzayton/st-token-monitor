@@ -5,6 +5,8 @@
 
 在 SillyTavern 对话界面中**实时显示 token 用量和提示词缓存命中状态**的轻量级扩展。
 
+> 这是我第一次编程，也是第一次用 Vibe Coding 把项目推到 GitHub。DeepSeek V4 Pro 经本人实测可用，但缓存命中检测偶尔不稳定——欢迎提 PR 一起打磨。
+
 ## 功能
 
 - **实时 Token 计数**：显示每次请求的 Prompt tokens、Completion tokens 和 Total tokens
@@ -132,6 +134,17 @@ git clone https://github.com/rskzayton/st-token-monitor.git
 - Output token 在生成中为估算值（约 3 字/token for 英文，1.5 字/token for 中文）
 - 生成完成后会替换为 API 返回的精确值
 - Prompt token 在生成前计数，生成后可能被 API 精确值覆盖
+
+### DeepSeek 缓存始终显示 MISS？
+
+DeepSeek 的 Context Caching 与 Anthropic 的自动缓存机制不同：
+
+1. **首次请求必然 MISS**——缓存需要有前缀匹配的历史请求才能命中
+2. **同角色连续对话**——保持同一角色、同一 system prompt，连续发送 2-3 条消息后缓存才会建立
+3. **缓存有时效**——DeepSeek 缓存有效期约 1 小时，超时后自动失效
+4. **确保模型支持**——DeepSeek V3/R1/V4 Pro 支持 Context Caching，旧模型可能不支持
+
+**实测验证**：用同一角色连续对话，观察第二次及后续请求的 `prompt_cache_hit_tokens` 是否 > 0。如果始终为 0，检查 SillyTavern 的 DeepSeek API 适配器是否正确传递了缓存相关参数。
 
 ### 面板拖不动或位置跑偏？
 
