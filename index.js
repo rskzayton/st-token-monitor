@@ -44,13 +44,21 @@ let state = {
     completionTokens: 0,
     estimatedCompletionTokens: 0,
     totalTokens: 0,
-    cacheStatus: null,      // 'HIT' | 'MISS' | 'PARTIAL' | null
-    cacheDetails: null,     // detailed info (cached_tokens, etc.)
+    cacheStatus: null,               // 'HIT' | 'MISS' | 'PARTIAL' | null
+    cacheDetails: null,              // detailed info (cached_tokens, etc.)
     modelName: null,
     isStreaming: false,
     startTime: null,
     lastPrompt: null,
-    _safetyTimer: null,     // 防止「一直显示生成中」的安全超时
+    _safetyTimer: null,              // 防止「一直显示生成中」的安全超时
+    // rikkahub-style 多轮工具调用累加
+    roundNumber: 0,                  // 当前是第几轮 generation
+    basePromptTokens: 0,             // 第1轮的 prompt tokens（不累加重入）
+    accumulatedCompletionTokens: 0,  // 跨轮累计 completion tokens
+    toolCallAccumulating: false,     // 是否在工具调用多轮累加中
+    _finalizeTimer: null,            // 多轮结束检测定时器
+    // 响应头缓存检测兜底
+    _lastBillingHeader: null,        // x-anthropic-billing-header 缓存值
 };
 
 // ---- Settings ----
@@ -474,8 +482,13 @@ function updateUI() {
     }
 
     // Status line
-    if (state.isStreaming) {
-        statusEl.textContent = '⏳ 生成中...';
+    if (state.toolCallAccumulating && !state.isStreaming) {
+        statusEl.textContent = `⚙️ 含工具调用 (${state.roundNumber}轮) · 总计 ${formatNumber(state.accumulatedCompletionTokens)} tokens`;
+        statusEl.style.opacity = '0.7';
+    } else if (state.isStreaming) {
+        statusEl.textContent = state.roundNumber >= 2
+            ? `⏳ 生成中 (第${state.roundNumber}轮工具调用)...`
+            : '⏳ 生成中...';
         statusEl.style.opacity = '0.8';
     } else {
         statusEl.textContent = state.startTime ? '✅ 就绪' : '💤 等待对话';
@@ -530,6 +543,12 @@ function resetStats() {
     state.isStreaming = false;
     state.startTime = null;
     state.lastPrompt = null;
+    state.roundNumber = 0;
+    state.basePromptTokens = 0;
+    state.accumulatedCompletionTokens = 0;
+    state.toolCallAccumulating = false;
+    state._lastBillingHeader = null;
+    if (state._finalizeTimer) { clearTimeout(state._finalizeTimer); state._finalizeTimer = null; }
     updateUI();
 }
 
@@ -538,21 +557,32 @@ function resetStats() {
 async function onGenerationStarted() {
     try {
         const context = getContext();
+
+        // rikkahub-style: 新轮次开始，取消上一轮的结束定时器
+        if (state._finalizeTimer) { clearTimeout(state._finalizeTimer); state._finalizeTimer = null; }
+
+        state.roundNumber++;
         state.startTime = Date.now();
         state.isStreaming = true;
         state.estimatedCompletionTokens = 0;
-        state.completionTokens = 0;
         state.cacheStatus = null;
         state.cacheDetails = null;
 
-        // 安全超时：如果 GENERATION_ENDED 在 3 分钟内未触发，自动复位状态
+        // 第2轮起标记为工具调用多轮累加
+        if (state.roundNumber >= 2) {
+            state.toolCallAccumulating = true;
+        }
+
+        // 安全超时：如果 GENERATION_ENDED 在 3 分钟内未触发，自动复位
         if (state._safetyTimer) clearTimeout(state._safetyTimer);
         state._safetyTimer = setTimeout(() => {
             if (state.isStreaming) {
-                console.debug(`[${EXTENSION_NAME}] safety timeout: force reset streaming state`);
+                console.debug(`[${EXTENSION_NAME}] safety timeout: force reset`);
                 state.isStreaming = false;
                 if (state.estimatedCompletionTokens > 0) {
-                    state.completionTokens = state.estimatedCompletionTokens;
+                    // 累加到总计数
+                    state.accumulatedCompletionTokens += state.estimatedCompletionTokens;
+                    state.completionTokens = state.accumulatedCompletionTokens;
                 }
                 updateUI();
             }
@@ -566,29 +596,27 @@ async function onGenerationStarted() {
             // ignore
         }
 
-        // Count prompt tokens
-        try {
-            // Get the full prompt text
-            let promptText = '';
-
-            // Combine the chat into a single prompt
-            if (typeof context.getPrompt === 'function') {
-                promptText = await context.getPrompt();
-            }
-
-            if (!promptText && context.chat) {
-                promptText = context.chat.map(m => (m.name || '') + ': ' + (m.mes || '')).join('\n');
-            }
-
-            if (promptText) {
-                state.lastPrompt = promptText;
-                state.promptTokens = await getTokenCountAsync(promptText) || estimateTokensFromText(promptText);
-            }
-        } catch {
-            // Fallback estimate
-            if (context.chat) {
-                const text = context.chat.map(m => (m.mes || '')).join('');
-                state.promptTokens = estimateTokensFromText(text);
+        // Count prompt tokens — 仅第 1 轮（工具调用后续轮次是追加内容，不计入 base）
+        if (state.roundNumber === 1) {
+            try {
+                let promptText = '';
+                if (typeof context.getPrompt === 'function') {
+                    promptText = await context.getPrompt();
+                }
+                if (!promptText && context.chat) {
+                    promptText = context.chat.map(m => (m.name || '') + ': ' + (m.mes || '')).join('\n');
+                }
+                if (promptText) {
+                    state.lastPrompt = promptText;
+                    state.promptTokens = await getTokenCountAsync(promptText) || estimateTokensFromText(promptText);
+                    state.basePromptTokens = state.promptTokens;
+                }
+            } catch {
+                if (context.chat) {
+                    const text = context.chat.map(m => (m.mes || '')).join('');
+                    state.promptTokens = estimateTokensFromText(text);
+                    state.basePromptTokens = state.promptTokens;
+                }
             }
         }
 
@@ -618,29 +646,70 @@ async function onGenerationEnded(message) {
         const usage = await extractUsageFromResponse();
 
         if (usage) {
-            // Extract token counts
-            if (usage.input_tokens !== undefined) {
-                state.promptTokens = usage.input_tokens;
-            } else if (usage.prompt_tokens !== undefined) {
-                state.promptTokens = usage.prompt_tokens;
+            // 本轮的 completion tokens
+            const roundCompletion = usage.output_tokens !== undefined
+                ? usage.output_tokens
+                : usage.completion_tokens || 0;
+
+            // rikkahub-style: 跨轮累计 completion tokens
+            state.accumulatedCompletionTokens += roundCompletion;
+            state.completionTokens = state.accumulatedCompletionTokens;
+
+            // 第1轮保存 base prompt，后续轮不覆盖
+            if (state.roundNumber === 1) {
+                const promptCount = usage.input_tokens !== undefined
+                    ? usage.input_tokens
+                    : usage.prompt_tokens || state.promptTokens;
+                state.promptTokens = promptCount;
+                state.basePromptTokens = promptCount;
             }
 
-            if (usage.output_tokens !== undefined) {
-                state.completionTokens = usage.output_tokens;
-            } else if (usage.completion_tokens !== undefined) {
-                state.completionTokens = usage.completion_tokens;
+            // 缓存检测 — 尝试兜底（响应体 + 响应头 billing header）
+            let cache = detectCacheStatus(usage);
+
+            // Claude 流式响应兜底：如果响应体没有缓存数据，检查 billing header
+            if (!cache.status || cache.status === 'MISS') {
+                const billing = state._lastBillingHeader || window.__st_tm_billing_header;
+                if (billing && typeof billing === 'string') {
+                    const cchMatch = billing.match(/cch=([^;]+)/);
+                    if (cchMatch && cchMatch[1] !== '00000') {
+                        // billing header 指示了缓存活动，但响应体没体现
+                        // 说明是流式 SSE 缺失缓存 tokens —— 从响应体补充
+                        if (!usage.cache_read_input_tokens && !usage.prompt_cache_hit_tokens) {
+                            cache.status = cache.status === 'MISS' ? 'PARTIAL' : cache.status;
+                            if (!cache.details) {
+                                const total = usage.input_tokens || usage.prompt_tokens || 0;
+                                cache.details = `检测到缓存活动 (header) · ${total} tokens prompt`;
+                            }
+                        }
+                    }
+                }
             }
 
-            // Detect cache
-            const cache = detectCacheStatus(usage);
             state.cacheStatus = cache.status;
             state.cacheDetails = cache.details;
+
+            // 持久化 billing header（供后续请求比较）
+            if (window.__st_tm_billing_header) {
+                state._lastBillingHeader = window.__st_tm_billing_header;
+            }
         } else {
-            // If no API data, use estimated completion
-            state.completionTokens = state.estimatedCompletionTokens;
+            // 无法获取 API 数据，使用估算值累加
+            state.accumulatedCompletionTokens += state.estimatedCompletionTokens;
+            state.completionTokens = state.accumulatedCompletionTokens;
             state.cacheStatus = null;
             state.cacheDetails = '无法获取 API 用量数据';
         }
+
+        // rikkahub-style: 多轮检测 — 3秒内无新轮次则视为结束
+        if (state._finalizeTimer) clearTimeout(state._finalizeTimer);
+        state._finalizeTimer = setTimeout(() => {
+            state.toolCallAccumulating = false;
+            state.roundNumber = 0;
+            state.completionTokens = state.accumulatedCompletionTokens;
+            state.promptTokens = state.basePromptTokens;
+            updateUI();
+        }, 3000);
 
         updateUI();
     } catch (e) {
@@ -653,7 +722,9 @@ async function onGenerationEnded(message) {
 function onGenerationStopped() {
     state.isStreaming = false;
     if (state._safetyTimer) { clearTimeout(state._safetyTimer); state._safetyTimer = null; }
-    state.completionTokens = state.estimatedCompletionTokens;
+    // 用户手动停止：累加当前轮的估算值
+    state.accumulatedCompletionTokens += state.estimatedCompletionTokens;
+    state.completionTokens = state.accumulatedCompletionTokens;
     updateUI();
 }
 
@@ -661,8 +732,30 @@ function onGenerationStopped() {
 async function init() {
     loadSettings();
     createPanel();
+    installFetchInterceptor();
     updateUI();
     registerEventListeners();
+}
+
+// rikkahub-style: 拦截 fetch 捕获 Anthropic billing header 作为缓存检测兜底
+function installFetchInterceptor() {
+    if (window.__st_tm_fetch_patched) return;
+    window.__st_tm_fetch_patched = true;
+
+    const originalFetch = window.fetch;
+    window.fetch = function (input, init) {
+        return originalFetch.call(window, input, init).then((response) => {
+            try {
+                const billing = response.headers.get('x-anthropic-billing-header');
+                if (billing) {
+                    window.__st_tm_billing_header = billing;
+                }
+            } catch {
+                // best-effort
+            }
+            return response;
+        });
+    };
 }
 
 function registerEventListeners() {
