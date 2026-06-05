@@ -1,6 +1,6 @@
 # Token & Cache Monitor for SillyTavern
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.0.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 在 SillyTavern 对话界面中**实时显示 token 用量和提示词缓存命中状态**的轻量级扩展。
