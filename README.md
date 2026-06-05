@@ -26,7 +26,21 @@
 
 ## 安装
 
-### 方法一：通过扩展目录安装（推荐）
+### 方法一：通过 URL 安装（最简单）
+
+1. 打开 SillyTavern，点击顶部栏的 **扩展** 图标（拼图图标）
+2. 点击 **安装扩展** 按钮
+3. 在弹出的对话框中粘贴仓库 URL：
+   ```
+   https://github.com/rskzayton/st-token-monitor
+   ```
+4. （可选）选择安装目标：`为所有用户安装` 或 `仅为我安装`
+5. 点击 **安装**，等待克隆完成
+6. 在「管理扩展」列表中找到 **Token & Cache Monitor**，点击启用
+
+> 中国用户如 GitHub 连接困难，可使用 Gitee 镜像导入后安装，或通过方法二手动安装。
+
+### 方法二：手动克隆到扩展目录
 
 1. 进入 SillyTavern 的 `data/default/extensions/` 目录
 2. 克隆或下载本仓库：
@@ -37,7 +51,7 @@ git clone https://github.com/rskzayton/st-token-monitor.git
 3. 重启 SillyTavern
 4. 在扩展菜单中启用 **Token & Cache Monitor**
 
-### 方法二：手动安装
+### 方法三：手动下载
 
 1. 下载本仓库的最新 Release
 2. 解压到 `data/default/extensions/st-token-monitor/`
