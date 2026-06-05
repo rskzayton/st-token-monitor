@@ -46,6 +46,7 @@ let state = {
     totalTokens: 0,
     cacheStatus: null,               // 'HIT' | 'MISS' | 'PARTIAL' | null
     cacheDetails: null,              // detailed info (cached_tokens, etc.)
+    cacheHitTokens: 0,               // 缓存命中的 token 数
     modelName: null,
     isStreaming: false,
     startTime: null,
@@ -427,9 +428,13 @@ function updateUI() {
         modelEl.style.display = 'none';
     }
 
-    // Prompt tokens
+    // Prompt tokens — 格式: "总tokens(缓存命中tokens)"
     if (s.showPromptTokens && state.promptTokens > 0) {
-        promptEl.textContent = `📤 Prompt: ${formatNumber(state.promptTokens)} tokens`;
+        if (state.cacheHitTokens > 0) {
+            promptEl.textContent = `📤 Prompt: ${formatNumber(state.promptTokens)} tokens (${formatNumber(state.cacheHitTokens)} 缓存命中)`;
+        } else {
+            promptEl.textContent = `📤 Prompt: ${formatNumber(state.promptTokens)} tokens`;
+        }
         promptEl.style.display = 'block';
     } else {
         promptEl.style.display = 'none';
@@ -539,6 +544,7 @@ function resetStats() {
     state.totalTokens = 0;
     state.cacheStatus = null;
     state.cacheDetails = null;
+    state.cacheHitTokens = 0;
     state.modelName = null;
     state.isStreaming = false;
     state.startTime = null;
@@ -567,6 +573,7 @@ async function onGenerationStarted() {
         state.estimatedCompletionTokens = 0;
         state.cacheStatus = null;
         state.cacheDetails = null;
+        state.cacheHitTokens = 0;
 
         // 第2轮起标记为工具调用多轮累加
         if (state.roundNumber >= 2) {
@@ -688,6 +695,13 @@ async function onGenerationEnded(message) {
 
             state.cacheStatus = cache.status;
             state.cacheDetails = cache.details;
+
+            // 提取缓存命中 token 数（用于 Prompt 显示格式）
+            state.cacheHitTokens =
+                usage.cache_read_input_tokens
+                || usage.prompt_cache_hit_tokens
+                || (usage.prompt_tokens_details && usage.prompt_tokens_details.cached_tokens)
+                || 0;
 
             // 持久化 billing header（供后续请求比较）
             if (window.__st_tm_billing_header) {
