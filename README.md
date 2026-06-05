@@ -8,7 +8,7 @@
 ## 功能
 
 - **实时 Token 计数**：显示每次请求的 Prompt tokens、Completion tokens 和 Total tokens
-- **缓存命中检测**：自动检测并显示 Anthropic 和 OpenAI API 的缓存命中状态（HIT / PARTIAL / MISS）
+- **缓存命中检测**：自动检测并显示 Anthropic、OpenAI、DeepSeek API 的缓存命中状态（HIT / PARTIAL / MISS）
 - **Streaming 实时估算**：流式生成过程中实时估算输出 token 数
 - **浮动面板**：可拖拽、可折叠、可关闭的悬浮面板，不遮挡聊天区域
 - **一键复制**：一键复制统计数据到剪贴板
@@ -20,6 +20,7 @@
 |---|---|---|
 | Anthropic Claude | `usage.cache_read_input_tokens` / `cache_creation_input_tokens` | HIT / PARTIAL / MISS |
 | OpenAI | `usage.prompt_tokens_details.cached_tokens` | HIT / PARTIAL / MISS |
+| DeepSeek | `usage.prompt_cache_hit_tokens` / `prompt_cache_miss_tokens` | HIT / PARTIAL / MISS |
 | OpenRouter | 暂不支持 | — |
 | 其他 | 自动降级 | — |
 
@@ -31,7 +32,7 @@
 2. 克隆或下载本仓库：
 ```bash
 cd data/default/extensions/
-git clone https://github.com/cherrystudio-community/st-token-monitor.git
+git clone https://github.com/rskzayton/st-token-monitor.git
 ```
 3. 重启 SillyTavern
 4. 在扩展菜单中启用 **Token & Cache Monitor**
@@ -95,18 +96,19 @@ st-token-monitor/
 
 - **Anthropic**: 读取 `usage.cache_read_input_tokens` 和 `usage.cache_creation_input_tokens`
 - **OpenAI**: 读取 `usage.prompt_tokens_details.cached_tokens`
+- **DeepSeek**: 读取 `usage.prompt_cache_hit_tokens` 和 `usage.prompt_cache_miss_tokens`
 
 ## 兼容性
 
 - SillyTavern 版本: >= 1.12.0（需要 `generateRawData()` 支持）
 - 浏览器: Chrome / Firefox / Edge 最新版本
-- API 后端: Anthropic Claude API、OpenAI API、兼容 OpenAI 格式的 API
+- API 后端: Anthropic Claude API、OpenAI API、DeepSeek API、兼容 OpenAI 格式的 API
 
 ## 开发
 
 ```bash
 # 克隆仓库
-gh repo clone cherrystudio-community/st-token-monitor
+gh repo clone rskzayton/st-token-monitor
 
 # 直接在 data/default/extensions/ 下开发，修改后重启 ST 即可
 ```

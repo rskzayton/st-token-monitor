@@ -110,6 +110,28 @@ function detectCacheStatus(usage) {
         return { status: 'MISS', details: '无缓存命中' };
     }
 
+    // --- DeepSeek-style (Context Caching) ---
+    if (usage.prompt_cache_hit_tokens !== undefined || usage.prompt_cache_miss_tokens !== undefined) {
+        const hit = usage.prompt_cache_hit_tokens || 0;
+        const miss = usage.prompt_cache_miss_tokens || 0;
+        const prompt = usage.prompt_tokens || (hit + miss);
+
+        if (hit > 0 && miss > 0) {
+            const pct = ((hit / (hit + miss || 1)) * 100).toFixed(0);
+            return {
+                status: 'PARTIAL',
+                details: `命中 ${formatNumber(hit)} · 未命中 ${formatNumber(miss)} (${pct}%)`,
+            };
+        }
+        if (hit > 0) {
+            return {
+                status: 'HIT',
+                details: `${formatNumber(hit)} / ${formatNumber(prompt)} tokens 缓存命中`,
+            };
+        }
+        return { status: 'MISS', details: `未命中 (${formatNumber(miss)} tokens)` };
+    }
+
     // --- OpenAI-style ---
     if (usage.prompt_tokens_details?.cached_tokens !== undefined) {
         const cached = usage.prompt_tokens_details.cached_tokens || 0;

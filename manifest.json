@@ -1,13 +1,13 @@
 {
     "display_name": "Token & Cache Monitor",
     "version": "1.0.0",
-    "description": "实时显示对话 token 用量和提示词缓存命中状态。支持 Anthropic (Claude) 和 OpenAI 的缓存检测。",
-    "author": "cherrystudio-community",
-    "homepage": "https://github.com/cherrystudio-community/st-token-monitor",
+    "description": "实时显示对话 token 用量和提示词缓存命中状态。支持 Anthropic (Claude)、OpenAI 和 DeepSeek 的缓存检测。",
+    "author": "rskzayton",
+    "homepage": "https://github.com/rskzayton/st-token-monitor",
     "license": "MIT",
     "repository": {
         "type": "github",
-        "url": "https://github.com/cherrystudio-community/st-token-monitor"
+        "url": "https://github.com/rskzayton/st-token-monitor"
     },
     "main": "index.js",
     "css": "style.css",
