@@ -185,6 +185,23 @@ st-token-monitor/
 - **OpenAI**: 读取 `usage.prompt_tokens_details.cached_tokens`
 - **DeepSeek**: 读取 `usage.prompt_cache_hit_tokens` 和 `usage.prompt_cache_miss_tokens`
 
+### 缓存检测兜底（Anthropic billing header）
+
+当 Claude 流式 SSE 响应中缺失 `cache_read_input_tokens` 字段时，扩展会解析 `x-anthropic-billing-header` 响应头中的 `cch=` 值作为第二数据源。如果响应头指示缓存活动但响应体未体现，显示 `检测到缓存活动 (header) · 已通过账单头兜底确认`（参考 rikkahub commit `94dbf92`）。
+
+### 多轮工具调用累加
+
+当模型触发工具、搜索或 MCP 调用时，会产生多轮 generation。每轮都有独立的输入/输出 token 用量。之前的实现会被中间轮的 usage 覆盖，导致统计值跳变。
+
+参考 rikkahub PR #1059 的修复方案：
+- **第 1 轮**：记录 base prompt tokens，此后不覆盖
+- **所有轮**：completion tokens 跨轮累加
+- **3 秒空窗检测**：最后一轮结束后 3 秒内无新轮次，自动锁定数据
+
+UI 会同步显示：
+- `⏳ 生成中 (第2轮工具调用)...` — 多轮生成中
+- `⚙️ 含工具调用 (2轮) · 总计 1,234 tokens` — 多轮完成
+
 ## 兼容性
 
 - SillyTavern 版本: >= 1.12.0（需要 `generateRawData()` 支持）
