@@ -45,7 +45,14 @@ git clone https://github.com/rskzayton/st-token-monitor.git
 
 ## 使用方法
 
-安装启用后，屏幕右下角会出现一个 **Σ** 按钮，点击即可展开监控面板。
+### 快速上手
+
+1. 安装启用后，屏幕右下角会出现一个 **Σ** 按钮
+2. 点击 **Σ** 展开监控面板
+3. 正常开始对话，面板会自动更新每次请求的 token 数据
+4. 不需要时点击 `✕` 关闭面板，**Σ** 按钮保留以便随时打开
+
+详细操作：
 
 - **拖拽**：拖拽面板标题栏可移动位置
 - **折叠**：点击 `─` 折叠面板，只保留标题栏
@@ -55,15 +62,68 @@ git clone https://github.com/rskzayton/st-token-monitor.git
 
 ### 面板信息说明
 
-- `📡` — 当前使用的模型名称
-- `📤 Prompt` — 输入 token 数（含 system prompt、对话历史、人物卡等）
-- `📥 Output` — 输出 token 数。流式生成中显示实时估算值，生成完成后显示 API 返回的精确值
-- `📊 Total` — 输入 + 输出总和
-- `💾 Cache` — 缓存命中状态
-  - `🟢 HIT` — 全部命中
-  - `🟡 PARTIAL` — 部分命中
-  - `🔴 MISS` — 未命中
-- `⏳ 生成中...` / `✅ 就绪` — 当前状态
+| 图标 | 字段 | 说明 |
+|---|---|---|
+| 📡 | 模型名称 | 当前使用的模型 ID（如 `claude-sonnet-4-20250514`） |
+| 📤 Prompt | 输入 token | 含 system prompt、对话历史、人物卡等所有输入 token |
+| 📥 Output | 输出 token | 流式生成中显示实时估算值，完成后显示 API 精确值 |
+| 📊 Total | 总计 | Prompt + Output 的总和 |
+| 💾 Cache | 缓存状态 | 详见下方缓存状态对照表 |
+
+### 缓存状态对照
+
+| 图标 | 状态 | 含义 | 典型场景 |
+|---|---|---|---|
+| 🟢 HIT | 全部命中 | 所有 prompt 都命中缓存 | 连续对话未换角色/设定时 |
+| 🟡 PARTIAL | 部分命中 | 部分 prompt 命中缓存，部分未命中 | 对话历史超出缓存窗口 |
+| 🔴 MISS | 未命中 | 无缓存命中，全量计费 | 首次对话、更换角色、长时间未发送 |
+| — | 无数据 | 无法获取缓存信息 | 不支持缓存的 API、非流式模式 |
+
+### 各 Provider 缓存触发条件
+
+| Provider | 缓存触发条件 | 缓存时长 |
+|---|---|---|
+| Anthropic Claude | 连续对话中重复使用同一 system prompt 和长对话历史 | 约 5 分钟（cache breakpoint 机制） |
+| OpenAI | 使用 `cached_prompt` 或自动缓存（取决于模型版本） | 约 5-10 分钟 |
+| DeepSeek | 启用 Context Caching 功能，前缀相同时自动命中 | 约 1 小时 |
+
+## 配置
+
+扩展安装后默认启用。如需调整，在 SillyTavern 中打开本扩展的设置面板可配置：
+
+- **显示 Prompt tokens**：开关输入 token 计数显示
+- **显示 Completion tokens**：开关输出 token 计数显示
+- **显示 Total tokens**：开关总计显示
+- **显示 Cache 状态**：开关缓存命中检测显示
+- **显示估算值**：完成后是否同时显示粗略估算值（与精确值对比）
+- **面板位置**：预设位置（`top-left` / `top-right` / `bottom-left` / `bottom-right`）
+
+## 常见问题
+
+### 面板不显示任何数据？
+
+1. 确认扩展已在 SillyTavern 扩展菜单中启用
+2. 发送一条对话消息触发 API 请求
+3. 检查 ST 版本是否 >= 1.12.0（需要 `generateRawData()` 支持）
+
+### 缓存始终显示 MISS？
+
+- 确认你的 API Provider 和模型版本支持 prompt caching
+- Anthropic：连续发送消息，每次保持大部分 prompt 不变，缓存约需 1-2 次请求后才会命中
+- DeepSeek：需在 API 请求中显式启用 Context Caching
+- 流式模式下缓存检测依赖 `generateRawData()`，确认 ST 版本支持
+
+### 显示的 token 数和实际费用不一致？
+
+- Output token 在生成中为估算值（约 3 字/token for 英文，1.5 字/token for 中文）
+- 生成完成后会替换为 API 返回的精确值
+- Prompt token 在生成前计数，生成后可能被 API 精确值覆盖
+
+### 面板拖不动或位置跑偏？
+
+- 刷新页面后面板会回到预设位置
+- 拖拽过程中不要松开鼠标，直到放到目标位置
+- 触摸屏设备同样支持拖拽
 
 ## 文件结构
 
