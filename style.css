@@ -1,0 +1,142 @@
+/* ============================================================
+   Token & Cache Monitor — SillyTavern Extension Styles
+   ============================================================ */
+
+/* --- Toggle Button --- */
+#st_token_monitor_toggle {
+    position: fixed;
+    z-index: 9998;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--SmartThemeBodyColor, #2a2a2a);
+    color: var(--SmartThemeBodyTextColor, #ccc);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    user-select: none;
+}
+
+#st_token_monitor_toggle:hover {
+    opacity: 1;
+}
+
+/* --- Panel Container --- */
+#st_token_monitor_panel {
+    position: fixed;
+    z-index: 9999;
+    min-width: 220px;
+    max-width: 340px;
+    background: var(--SmartThemeBlurTintColor, #1a1a2e);
+    color: var(--SmartThemeBodyTextColor, #ccc);
+    border: 1px solid var(--SmartThemeBorderColor, #333);
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-family: var(--mainFontFamily, sans-serif);
+    transition: opacity 0.15s;
+}
+
+/* --- Panel Header --- */
+#st_token_monitor_panel_header {
+    cursor: move;
+    padding: 8px 12px;
+    background: var(--SmartThemeBlurTintColor, #1a1a2e);
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #333);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    border-radius: 10px 10px 0 0;
+}
+
+/* --- Panel Body --- */
+#st_token_monitor_panel_body {
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* --- Model Name --- */
+#st_token_monitor_panel_model {
+    margin-bottom: 6px;
+    font-size: 12px;
+    opacity: 0.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --- Data Rows --- */
+#st_token_monitor_panel_prompt,
+#st_token_monitor_panel_completion,
+#st_token_monitor_panel_total,
+#st_token_monitor_panel_cache {
+    padding: 2px 0;
+}
+
+/* --- Cache status colors --- */
+#st_token_monitor_panel_cache {
+    padding: 4px 0;
+    border-top: 1px dashed var(--SmartThemeBorderColor, #333);
+    margin-top: 4px;
+}
+
+/* --- Status Line --- */
+#st_token_monitor_panel_status {
+    margin-top: 6px;
+    font-size: 11px;
+    opacity: 0.5;
+}
+
+/* --- Action Buttons --- */
+#st_token_monitor_panel_body .menu_button {
+    font-size: 11px;
+    padding: 2px 8px;
+    margin: 0;
+}
+
+/* --- Animation for streaming state --- */
+@keyframes st-token-pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+#st_token_monitor_panel[data-streaming="true"] #st_token_monitor_panel_status {
+    animation: st-token-pulse 1.5s ease-in-out infinite;
+}
+
+/* --- Dark / Light theme adaptations --- */
+:root[data-theme="dark"] #st_token_monitor_panel {
+    background: rgba(26, 26, 46, 0.95);
+}
+
+:root[data-theme="light"] #st_token_monitor_panel {
+    background: rgba(245, 245, 255, 0.95);
+    border-color: #ddd;
+}
+
+:root[data-theme="light"] #st_token_monitor_panel_header {
+    border-bottom-color: #ddd;
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+    #st_token_monitor_panel {
+        min-width: 160px;
+        max-width: 260px;
+        font-size: 12px;
+    }
+
+    #st_token_monitor_toggle {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+}
