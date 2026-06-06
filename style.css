@@ -1,142 +1,346 @@
-/* ============================================================
-   Token & Cache Monitor — SillyTavern Extension Styles
-   ============================================================ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Token & Cache Monitor — SillyTavern Extension
+   Panel + Per-message badges + Settings overlay
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-/* --- Toggle Button --- */
-#st_token_monitor_toggle {
+/* ── Floating panel ───────────────────────────────────────────────────── */
+
+#tcm-panel {
     position: fixed;
-    z-index: 9998;
-    cursor: pointer;
-    width: 36px;
-    height: 36px;
+    right: 12px;
+    bottom: 90px;
+    width: 235px;
+    max-height: 500px;
+    background: #1a1a2e;
+    border: 1px solid #3a3a5e;
     border-radius: 8px;
-    background: var(--SmartThemeBodyColor, #2a2a2a);
-    color: var(--SmartThemeBodyTextColor, #ccc);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    opacity: 0.7;
-    transition: opacity 0.2s;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.5);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 11.5px;
+    color: #c8c8d0;
+    z-index: 99990;
     user-select: none;
+    overflow: hidden;
+    transition: width 0.18s ease, max-height 0.18s ease;
 }
 
-#st_token_monitor_toggle:hover {
-    opacity: 1;
+#tcm-panel.tcm-collapsed {
+    width: 175px;
+    max-height: 38px;
 }
 
-/* --- Panel Container --- */
-#st_token_monitor_panel {
-    position: fixed;
-    z-index: 9999;
-    min-width: 220px;
-    max-width: 340px;
-    background: var(--SmartThemeBlurTintColor, #1a1a2e);
-    color: var(--SmartThemeBodyTextColor, #ccc);
-    border: 1px solid var(--SmartThemeBorderColor, #333);
-    border-radius: 10px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    font-family: var(--mainFontFamily, sans-serif);
-    transition: opacity 0.15s;
-}
+/* ── Panel header ─────────────────────────────────────────────────────── */
 
-/* --- Panel Header --- */
-#st_token_monitor_panel_header {
-    cursor: move;
-    padding: 8px 12px;
-    background: var(--SmartThemeBlurTintColor, #1a1a2e);
-    border-bottom: 1px solid var(--SmartThemeBorderColor, #333);
+.tcm-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    user-select: none;
-    border-radius: 10px 10px 0 0;
+    padding: 5px 10px;
+    background: #16213e;
+    border-bottom: 1px solid #2a2a4e;
+    cursor: move;
+    min-height: 26px;
+    gap: 6px;
 }
 
-/* --- Panel Body --- */
-#st_token_monitor_panel_body {
-    padding: 10px 12px;
-    font-size: 13px;
-    line-height: 1.6;
-}
-
-/* --- Model Name --- */
-#st_token_monitor_panel_model {
-    margin-bottom: 6px;
-    font-size: 12px;
-    opacity: 0.7;
+.tcm-head-l {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+    font-size: 11.5px;
+    color: #d8d8f0;
+    letter-spacing: 0.2px;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
 }
 
-/* --- Data Rows --- */
-#st_token_monitor_panel_prompt,
-#st_token_monitor_panel_completion,
-#st_token_monitor_panel_total,
-#st_token_monitor_panel_cache {
+.tcm-head-r {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.tcm-b {
+    background: none;
+    border: 1px solid transparent;
+    color: #7a7aac;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 1px 5px;
+    border-radius: 3px;
+    line-height: 1.2;
+    transition: color 0.12s, background 0.12s;
+}
+
+.tcm-b:hover {
+    color: #d0d0ff;
+    background: rgba(255,255,255,0.07);
+    border-color: #4a4a7e;
+}
+
+/* ── Panel body ───────────────────────────────────────────────────────── */
+
+.tcm-body {
+    overflow-y: auto;
+    max-height: 440px;
     padding: 2px 0;
 }
 
-/* --- Cache status colors --- */
-#st_token_monitor_panel_cache {
-    padding: 4px 0;
-    border-top: 1px dashed var(--SmartThemeBorderColor, #333);
-    margin-top: 4px;
+.tcm-body::-webkit-scrollbar {
+    width: 4px;
 }
 
-/* --- Status Line --- */
-#st_token_monitor_panel_status {
+.tcm-body::-webkit-scrollbar-thumb {
+    background: #3a3a5e;
+    border-radius: 2px;
+}
+
+/* ── Cache-breaker warning ────────────────────────────────────────────── */
+
+.tcm-cb-warn {
+    margin: 4px 8px;
+    padding: 5px 8px;
+    background: rgba(255,152,0,0.12);
+    border: 1px solid rgba(255,152,0,0.25);
+    border-radius: 5px;
+    font-size: 10.5px;
+    color: #ffb74d;
+    line-height: 1.4;
+}
+
+/* ── Sections ─────────────────────────────────────────────────────────── */
+
+.tcm-sec {
+    padding: 3px 10px 5px;
+    border-bottom: 1px solid #1f1f3a;
+}
+
+.tcm-sec-t {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6e6ea8;
+    margin-bottom: 2px;
+}
+
+.tcm-r {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5px 0;
+}
+
+.tcm-r span:first-child {
+    color: #9090b0;
+    font-size: 11px;
+}
+
+.tcm-r span:last-child {
+    font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+    font-weight: 600;
+    font-size: 11px;
+    color: #d0d0f0;
+}
+
+.tcm-g  { color: #4caf50 !important; }   /* green: cache hit */
+.tcm-r2 { color: #ef5350 !important; }   /* red: cache miss */
+.tcm-y  { color: #ffd54f !important; }   /* yellow: cost */
+
+/* ── Settings overlay ─────────────────────────────────────────────────── */
+
+.tcm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 99999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.tcm-set {
+    background: #1e1e38;
+    border: 1px solid #4a4a7e;
+    border-radius: 10px;
+    padding: 20px 22px;
+    min-width: 300px;
+    max-width: 400px;
+    color: #c8c8d0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 13px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.55);
+}
+
+.tcm-set h3 {
+    margin: 0 0 14px;
+    font-size: 14px;
+    color: #e0e0f0;
+}
+
+.tcm-set label {
+    display: block;
+    margin: 7px 0;
+    cursor: pointer;
+}
+
+.tcm-set input[type="checkbox"] {
+    margin-right: 7px;
+}
+
+.tcm-set select,
+.tcm-set input[type="number"] {
+    background: #12122a;
+    border: 1px solid #3a3a5e;
+    color: #d0d0f0;
+    padding: 4px 7px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-left: 4px;
+}
+
+.tcm-set input[type="number"] {
+    width: 85px;
+}
+
+.tcm-set-btns {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.tcm-set-btns button {
+    padding: 5px 14px;
+    border-radius: 5px;
+    border: 1px solid #3a3a5e;
+    background: #2a2a4e;
+    color: #d0d0f0;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.12s;
+}
+
+.tcm-set-btns button:hover {
+    background: #3a3a6e;
+}
+
+.tcm-set-btns button:first-child {
+    background: #2e4a7a;
+    border-color: #4a6aae;
+}
+
+.tcm-set-btns button:first-child:hover {
+    background: #3a5a9a;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Per-message token badge (RikkaHub / Cherry Studio style)
+   Appended below each AI chat message
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tcm-msg-badge {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
     margin-top: 6px;
+    padding: 3px 0;
+    font-size: 10.5px;
+    font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+    color: #8888aa;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    user-select: none;
+    pointer-events: none;
+}
+
+.tcm-msg-badge span {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    white-space: nowrap;
+}
+
+.tcm-badge-p {
+    color: #90caf9;    /* blue-ish: prompt */
+}
+
+.tcm-badge-c {
+    color: #a5d6a7;    /* green-ish: completion */
+}
+
+.tcm-badge-ch {
+    /* color set inline based on hit rate */
+    font-weight: 600;
+}
+
+.tcm-badge-cost {
+    color: #ffcc80;    /* amber: cost */
+    margin-left: auto;
+}
+
+/* ── Pre-send estimate ───────────────────────────────────────────────── */
+
+.tcm-est {
+    color: #7e7ea8;
+    font-style: italic;
+}
+
+/* ── Cache write tokens colour ────────────────────────────────────────── */
+
+.tcm-write {
+    color: #ce93d8;    /* purple-ish: cache writes */
+    font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+    font-weight: 600;
     font-size: 11px;
-    opacity: 0.5;
 }
 
-/* --- Action Buttons --- */
-#st_token_monitor_panel_body .menu_button {
-    font-size: 11px;
-    padding: 2px 8px;
-    margin: 0;
+/* ═══════════════════════════════════════════════════════════════════════════
+   Trend chart
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tcm-trend-wrap {
+    margin: 4px 8px 2px;
+    border-radius: 5px;
+    background: rgba(0,0,0,0.15);
+    overflow: hidden;
 }
 
-/* --- Animation for streaming state --- */
-@keyframes st-token-pulse {
-    0% { opacity: 0.6; }
-    50% { opacity: 1; }
-    100% { opacity: 0.6; }
+.tcm-trend-wrap canvas {
+    display: block;
+    width: 100%;
+    height: 70px;
 }
 
-#st_token_monitor_panel[data-streaming="true"] #st_token_monitor_panel_status {
-    animation: st-token-pulse 1.5s ease-in-out infinite;
+/* ═══════════════════════════════════════════════════════════════════════════
+   Export buttons
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tcm-export-btns {
+    display: flex;
+    gap: 6px;
+    padding: 6px 10px 8px;
+    border-top: 1px solid #1f1f3a;
 }
 
-/* --- Dark / Light theme adaptations --- */
-:root[data-theme="dark"] #st_token_monitor_panel {
-    background: rgba(26, 26, 46, 0.95);
+.tcm-export-btn {
+    flex: 1;
+    padding: 4px 0;
+    border-radius: 4px;
+    border: 1px solid #2a2a4e;
+    background: #1a1a38;
+    color: #9090b0;
+    font-size: 10.5px;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.12s, color 0.12s;
 }
 
-:root[data-theme="light"] #st_token_monitor_panel {
-    background: rgba(245, 245, 255, 0.95);
-    border-color: #ddd;
-}
-
-:root[data-theme="light"] #st_token_monitor_panel_header {
-    border-bottom-color: #ddd;
-}
-
-/* --- Responsive --- */
-@media (max-width: 768px) {
-    #st_token_monitor_panel {
-        min-width: 160px;
-        max-width: 260px;
-        font-size: 12px;
-    }
-
-    #st_token_monitor_toggle {
-        width: 32px;
-        height: 32px;
-        font-size: 14px;
-    }
+.tcm-export-btn:hover {
+    background: #2a2a5e;
+    color: #d0d0f0;
+    border-color: #4a4a7e;
 }
