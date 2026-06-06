@@ -27,6 +27,25 @@ import {
     getContext,
 } from '../../../script.js';
 
+// ── Crash diagnostics — catches ANY error before ST's loader swallows it ────
+// ST's extension loader shows "[object Event]" when an uncaught error
+// occurs during import or top-level execution. We save the real error
+// to localStorage so the user can diagnose.
+window.__tcm_diag = { errors: [] };
+const _origOnerror = window.onerror;
+window.onerror = function (msg, url, line, col, err) {
+    const entry = { msg, url, line, col, stack: err?.stack || new Error().stack, time: Date.now() };
+    window.__tcm_diag.errors.push(entry);
+    try { localStorage.setItem('tcm_crash', JSON.stringify(entry)); } catch {}
+    if (typeof _origOnerror === 'function') return _origOnerror(msg, url, line, col, err);
+    return false;
+};
+window.addEventListener('unhandledrejection', function (e) {
+    const entry = { reason: String(e.reason), stack: e.reason?.stack, time: Date.now() };
+    window.__tcm_diag.errors.push(entry);
+    try { localStorage.setItem('tcm_crash', JSON.stringify(entry)); } catch {}
+});
+
 // ── Constants ───────────────────────────────────────────────────────────────
 const NAME = 'token-cache-monitor';
 const HISTORY_MAX = 30;
@@ -856,13 +875,20 @@ function startBadgeObserver() {
 function refresh() { render(); }
 
 function init() {
-    loadCfg();
-    loadStats();
-    enableIntercept();
-    hookEvents();
-    buildUI();
-    startBadgeObserver();
-    console.log(`[${NAME}] Ready — multi-method stats + persistence + trend + export.`);
+    try {
+        loadCfg();
+        loadStats();
+        enableIntercept();
+        hookEvents();
+        buildUI();
+        startBadgeObserver();
+        console.log(`[${NAME}] Ready — multi-method stats + persistence + trend + export.`);
+    } catch (err) {
+        const entry = { msg: String(err), stack: err?.stack, phase: 'init', time: Date.now() };
+        window.__tcm_diag.errors.push(entry);
+        try { localStorage.setItem('tcm_crash', JSON.stringify(entry)); } catch {}
+        console.error(`[${NAME}] Init failed:`, err);
+    }
 }
 
 if (document.readyState === 'loading') {
