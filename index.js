@@ -27,15 +27,6 @@ import {
     getContext,
 } from '../../../script.js';
 
-// ── Try to import ST's built-in tokenizer (may not exist in all versions) ──
-let getTokenCount = null;
-try {
-    const stMod = await import('../../../script.js');
-    if (typeof stMod.getTokenCount === 'function') {
-        getTokenCount = stMod.getTokenCount;
-    }
-} catch { /* SillyTavern version without this export */ }
-
 // ── Constants ───────────────────────────────────────────────────────────────
 const NAME = 'token-cache-monitor';
 const HISTORY_MAX = 30;
@@ -171,30 +162,26 @@ function price() {
 // ── Multi-method token estimation ────────────────────────────────────────────
 
 /**
- * Estimate token count with a 3-tier fallback:
- *   1. ST's built-in getTokenCount() — accurate, model-aware
- *   2. window.tokenizers.tiktoken — slightly older ST versions
+ * Estimate token count with runtime tokenizer detection:
+ *   1. window.tokenizers.tiktoken — ST's built-in tokenizer (most versions)
+ *   2. window.SillyTavern?.tokenizers — alternative ST global
  *   3. Character-based heuristic — universal fallback
  */
 function estimateTokens(text) {
     if (!text) return 0;
 
-    // Tier 1: ST built-in
-    if (typeof getTokenCount === 'function') {
-        try { return getTokenCount(text); } catch {}
-    }
+    // Tier 1: ST's global tokenizers (most SillyTavern versions)
+    try {
+        if (window.tokenizers?.tiktoken?.encode) {
+            return window.tokenizers.tiktoken.encode(text).length;
+        }
+        // Alternative global in some ST builds
+        if (window.SillyTavern?.tokenizers?.tiktoken?.encode) {
+            return window.SillyTavern.tokenizers.tiktoken.encode(text).length;
+        }
+    } catch {}
 
-    // Tier 2: global tokenizers (some ST versions expose this)
-    if (window.tokenizers?.tiktoken) {
-        try {
-            const enc = window.tokenizers.tiktoken;
-            if (typeof enc.encode === 'function') {
-                return enc.encode(text).length;
-            }
-        } catch {}
-    }
-
-    // Tier 3: character heuristic
+    // Tier 2: character heuristic
     const cjk  = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length;
     const rest = text.length - cjk;
     // CJK ~1.5 chars/token, Latin ~4 chars/token, mixed ~3

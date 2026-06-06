@@ -92,7 +92,7 @@ async function run() {
     // Step 4: Create commit
     console.log('\n4. Creating commit...');
     const commitBody = {
-        message: `${VERSION}: restructure to repo root, persistence, trend, export, multi-method stats`,
+        message: `${VERSION}: fix top-level await crash, switch tokenizer to runtime detection (window.tokenizers)`,
         tree: newTreeSha,
         parents: parentSha ? [parentSha] : [],
     };
